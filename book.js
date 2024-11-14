@@ -1,38 +1,57 @@
+
+
 // Import Three.js from CDN
 const script = document.createElement('script');
 script.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
 document.head.appendChild(script);
 
-// Import OrbitControls
-const controlsScript = document.createElement('script');
-controlsScript.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js';
-document.head.appendChild(controlsScript);
-
-// Wait for scripts to load
 script.onload = () => {
+    console.log("Three.js loaded");
+    
+    // Load OrbitControls first
+    const controlsScript = document.createElement('script');
+    controlsScript.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js';
+    document.head.appendChild(controlsScript);
+    
     controlsScript.onload = () => {
-        init();
+        console.log("Controls loaded");
+        
+        // Then load RectAreaLight
+        const rectAreaLightScript = document.createElement('script');
+        rectAreaLightScript.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/lights/RectAreaLightUniformsLib.js';
+        document.head.appendChild(rectAreaLightScript);
+        
+        rectAreaLightScript.onload = () => {
+            console.log("RectAreaLight loaded");
+            init();
+        };
     };
 };
 
 function init() {
     // Scene setup
+    // THREE.ColorManagement.legacyMode = false;
     const scene = new THREE.Scene();
-/*     scene.background = new THREE.Color(0x1a1a1a);  */
+
+     scene.background = new THREE.Color(0x444444);  
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.z = 5;
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setClearColor( 0x000000, 0 );
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.4;
     renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.getElementById('container').appendChild(renderer.domElement);
     
    // High-quality but subtle ambient light
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);  // Reduced intensity
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.1);  // Reduced intensity
     scene.add(ambientLight);
 
     // Main light - warm, strong keylight
-    const mainLight = new THREE.PointLight(0xffd5b8, 1);  // Slightly warm color
+    const mainLight = new THREE.PointLight(0xffd5b8, 0.2);  // Slightly warm color
     mainLight.position.set(3, 2, 4);
     camera.add(mainLight);
 
@@ -40,6 +59,15 @@ function init() {
     const fillLight = new THREE.PointLight(0xbce7fd, 0.4);  // Slightly cool color
     fillLight.position.set(-2, 0, 2);
     camera.add(fillLight);
+
+        // Update lighting
+    const spotLight = new THREE.SpotLight(0xffffff, 1);
+    spotLight.position.set(0, 15, 0);
+    spotLight.angle = 0.3;
+    spotLight.penumbra = 1;
+    spotLight.castShadow = true;
+    spotLight.shadow.bias = -0.0001;
+    camera.add(spotLight);
 
     // Rim light - helps separate book from background
     const rimLight = new THREE.PointLight(0xffffff, 0.3);
@@ -107,7 +135,7 @@ function init() {
         ctx.fillRect(0, 0, size, size);
         
         for (let i = 0; i < size; i += 2) {
-            ctx.fillStyle = `rgba(0,0,0,${Math.random() * 0.03})`;
+            ctx.fillStyle = `rgba(0,0,0,${Math.random() * 1})`;
             ctx.fillRect(i, 0, 1, size);
             
             ctx.fillStyle = `rgba(255,240,202,${Math.random() * 0.03})`;
@@ -212,7 +240,9 @@ function init() {
         roughness: 0.2,
         color: pngColor,
         emissive: 0xFFD700, // Same color for glow
-    emissiveIntensity: 0.5  // Intensity of the glow
+    emissiveIntensity: 0.5,  // Intensity of the glow
+    bumpMap: coverTextTexture,  // Adding just this line
+    bumpScale: 0.005 
     }));
     // Add these lines after creating frontText
         coverTextTexture.repeat.set(0.3, 0.3);  // Adjust these values as needed for size
@@ -253,7 +283,9 @@ function init() {
             side: THREE.DoubleSide,
             metalness: 1,
             roughness: 0.2,
-            color: pngColor
+            color: pngColor,
+            bumpMap: coverTextTexture,  // Adding just this line
+    bumpScale: 0.005 
         }));
 
         // Add these lines after creating backText
@@ -290,7 +322,9 @@ function init() {
             depthWrite: false,
             side: THREE.DoubleSide,
             metalness: 1,
-            roughness: 0.2
+            roughness: 0.2,
+            bumpMap: coverTextTexture,  // Adding just this line
+    bumpScale: 0.005 
         }));
 
         // Add these lines after creating spineText

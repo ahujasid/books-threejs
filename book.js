@@ -56,7 +56,7 @@ function init() {
     camera.add(mainLight);
 
     // Fill light - cooler, softer light for contrast
-    const fillLight = new THREE.PointLight(0xbce7fd, 0.4);  // Slightly cool color
+    const fillLight = new THREE.PointLight(0xbce7fd, 0.5);  // Slightly cool color
     fillLight.position.set(-2, 0, 2);
     camera.add(fillLight);
 
@@ -70,7 +70,7 @@ function init() {
     camera.add(spotLight);
 
     // Rim light - helps separate book from background
-    const rimLight = new THREE.PointLight(0xffffff, 0.3);
+    const rimLight = new THREE.PointLight(0xffffff, 0.6);
     rimLight.position.set(0, 3, -3);
     camera.add(rimLight);
 
@@ -88,12 +88,6 @@ function init() {
     controls.target.set(0, 0, 0);
     controls.update();
 
-    // Make lights update their matrices
-    function updateLights() {
-        keyLight.updateMatrixWorld();
-        fillLight.updateMatrixWorld();
-        topLight.updateMatrixWorld();
-    }
 
     // Book dimensions
     const width = 3;
@@ -159,6 +153,47 @@ function init() {
         });
     }
 
+    function createClothTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+    
+        // Base color (dark blue to match your existing bookColor)
+        ctx.fillStyle = '#0F2345';
+        ctx.fillRect(0, 0, 256, 256);
+    
+        // Create cloth weave pattern
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 1;
+    
+        // Create diagonal pattern
+        for (let i = -256; i < 256; i += 4) {
+            ctx.beginPath();
+            ctx.moveTo(i, 0);
+            ctx.lineTo(i + 256, 256);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(i, 256);
+            ctx.lineTo(i + 256, 0);
+            ctx.stroke();
+        }
+    
+        // Add noise for texture
+        const imageData = ctx.getImageData(0, 0, 256, 256);
+        const data = imageData.data;
+        for (let i = 0; i < data.length; i += 4) {
+            const noise = Math.random() * 15 - 7.5;
+            data[i] += noise;     // R
+            data[i + 1] += noise; // G
+            data[i + 2] += noise; // B
+        }
+        ctx.putImageData(imageData, 0, 0);
+    
+        return canvas;
+    }
+
     Promise.all([
         loadTexture('front-cover.png'),
         loadTexture('spine.png'),
@@ -214,12 +249,22 @@ function init() {
         
         const bookColor = 0x0F2345;
         const pngColor = 0xFFD700;
-        
-        const frontCover = new THREE.Mesh(frontCoverGeometry, new THREE.MeshStandardMaterial({
+
+        const clothTexture = new THREE.CanvasTexture(createClothTexture());
+        clothTexture.wrapS = THREE.RepeatWrapping;
+        clothTexture.wrapT = THREE.RepeatWrapping;
+        clothTexture.repeat.set(0.7, 0.7);
+
+        const coverMaterial = new THREE.MeshStandardMaterial({
+            map: clothTexture,
             color: bookColor,
-            roughness: 0.8,
-            metalness: 0
-        }));
+            roughness: 1,
+            metalness: 0,
+            bumpMap: clothTexture,
+            bumpScale: 0.02,
+        });
+        
+        const frontCover = new THREE.Mesh(frontCoverGeometry, coverMaterial);
         frontCover.position.z = depth/2 + coverThickness/2;
 
         // Front cover text overlay
@@ -240,7 +285,7 @@ function init() {
         roughness: 0.2,
         color: pngColor,
         emissive: 0xFFD700, // Same color for glow
-    emissiveIntensity: 0.5,  // Intensity of the glow
+    emissiveIntensity: 0.2,  // Intensity of the glow
     bumpMap: coverTextTexture,  // Adding just this line
     bumpScale: 0.005 
     }));
@@ -261,11 +306,7 @@ function init() {
             coverThickness,
             cornerRadius
         );
-        const backCover = new THREE.Mesh(backCoverGeometry, new THREE.MeshStandardMaterial({
-            color: bookColor,
-            roughness: 0.8,
-            metalness: 0
-        }));
+        const backCover = new THREE.Mesh(backCoverGeometry, coverMaterial);
         backCover.position.z = -depth/2 - coverThickness/2;
 
         // Back cover text overlay
@@ -301,11 +342,7 @@ function init() {
             height + coverExtension,
             depth + (coverThickness * 2)
         );
-        const spine = new THREE.Mesh(spineGeometry, new THREE.MeshStandardMaterial({
-            color: bookColor,
-            roughness: 0.8,
-            metalness: 0
-        }));
+        const spine = new THREE.Mesh(spineGeometry, coverMaterial);
         spine.position.x = -width/2 - coverThickness/2;
         spine.position.z += 0.03;
 
@@ -336,6 +373,7 @@ function init() {
         spineText.position.x = -width/2 - 0.075;
         spineText.position.z = 0.035;
         spineText.position.y = 0;
+
 
         const book = new THREE.Group();
         book.add(pages);

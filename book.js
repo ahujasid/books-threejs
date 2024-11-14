@@ -234,6 +234,73 @@ function init() {
         return geometry;
     }
 
+
+// Update the particle shader material with these modifications
+const particleShaderMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+        time: { value: 0 },
+        color: { value: new THREE.Color(0xFF69B4) }  // Pink particles
+    },
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `,
+    fragmentShader: `
+        uniform float time;
+        uniform vec3 color;
+        varying vec2 vUv;
+
+        float random(vec2 st) {
+            return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+        }
+
+        float noise(vec2 st) {
+            vec2 i = floor(st);
+            vec2 f = fract(st);
+            float a = random(i);
+            float b = random(i + vec2(1.0, 0.0));
+            float c = random(i + vec2(0.0, 1.0));
+            float d = random(i + vec2(1.0, 1.0));
+            vec2 u = f * f * (3.0 - 2.0 * f);
+            return mix(a, b, u.x) + (c - a)* u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+        }
+
+        void main() {
+            vec2 center = vec2(0.5, 0.5);
+            vec2 toCenter = center - vUv;
+            float dist = length(toCenter);
+            float angle = atan(toCenter.y, toCenter.x);
+            
+            float swirl = angle + dist * 2.0 - time * 0.3;
+            
+            float n = noise(vec2(
+                vUv.x * 30.0 + cos(swirl) * 3.0,
+                vUv.y * 30.0 + sin(swirl) * 3.0
+            ));
+            
+            float mask = smoothstep(0.4, 0.2, dist);
+            float particles = smoothstep(0.6, 0.62, n) * mask;
+            float scatter = noise(vUv * 40.0 + time * 0.1);
+            float scatterParticles = smoothstep(0.7, 0.71, scatter) * 0.5 * mask;
+            
+            float finalAlpha = (particles + scatterParticles);
+            gl_FragColor = vec4(color, finalAlpha);
+        }
+    `,
+    transparent: true,
+    opacity: 1.0,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    depthTest: true,
+    blending: THREE.AdditiveBlending
+});
+
+
+
+
     Promise.all([
         loadTexture('front-cover.png'),
         loadTexture('spine.png'),
@@ -287,8 +354,8 @@ function init() {
             cornerRadius
         );
         
-        const bookColor = 0x0F2345;
-        const pngColor = 0xFFD700;
+        const bookColor = 0x4A192C;
+        const pngColor = 0xFF69B4;
 
         const clothTexture = new THREE.CanvasTexture(createClothTexture());
         clothTexture.wrapS = THREE.RepeatWrapping;
@@ -302,6 +369,9 @@ function init() {
             metalness: 0,
             bumpMap: clothTexture,
             bumpScale: 0.02,
+            transparent: false,    // Make sure this is false
+            depthWrite: true,     // Make sure this is true
+            depthTest: true       // Make sure this is true
         });
         
         const frontCover = new THREE.Mesh(frontCoverGeometry, coverMaterial);
@@ -323,10 +393,8 @@ function init() {
         metalness: 1,
         roughness: 0.2,
         color: pngColor,
-        emissive: 0xFFD700, // Same color for glow
-    emissiveIntensity: 0.2,  // Intensity of the glow
-    bumpMap: coverTextTexture,  // Adding just this line
-    bumpScale: 0.005 
+        emissive: pngColor, // Same color for glow
+        emissiveIntensity: 0.2,  // Intensity of the glow
     }));
     // Add these lines after creating frontText
         coverTextTexture.repeat.set(1, 1);  // Adjust these values as needed for size
@@ -337,6 +405,26 @@ function init() {
         frontText.position.z = depth/2 + coverThickness/2 + 0.08;
         frontText.position.y = 0;
         frontText.position.x = 0;
+        frontText.renderOrder = 2;
+
+
+
+        //Particles
+        const particleGeometry = createFullCoverGeometry(
+            width + coverExtension,
+            height + coverExtension,
+            cornerRadius
+        );
+
+
+        const particleOverlay = new THREE.Mesh(particleGeometry, particleShaderMaterial);
+        particleOverlay.position.z = depth/2 + coverThickness/2 + 0.09;
+        particleOverlay.position.y = 0;
+        particleOverlay.position.x = 0;
+        particleOverlay.renderOrder = 1;
+        
+
+      
 
         // Back cover base
         const backCoverGeometry = createRoundedBoxGeometry(
@@ -422,6 +510,9 @@ function init() {
         book.add(backText);
         book.add(spine);
         book.add(spineText);
+        book.add(particleOverlay);
+
+        console.log('Particle overlay position:', particleOverlay.position);
 
         book.rotation.y = -0.5;
         scene.add(book);
@@ -430,7 +521,7 @@ function init() {
     function animate() {
         requestAnimationFrame(animate);
         controls.update();
-        // updateLights();
+        particleShaderMaterial.uniforms.time.value += 0.01;
         renderer.render(scene, camera);
     }
     animate();

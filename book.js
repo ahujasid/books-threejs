@@ -194,6 +194,46 @@ function init() {
         return canvas;
     }
 
+    function createFullCoverGeometry(width, height, radius) {
+        const shape = createRoundedRectShape(width, height, radius);
+        const extrudeSettings = {
+            steps: 1,
+            depth: 0.001,
+            bevelEnabled: false
+        };
+        const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+        
+        // Get UV attributes
+        const uvAttribute = geometry.attributes.uv;
+        const positions = geometry.attributes.position;
+        
+        // Calculate bounds
+        let minX = Infinity, maxX = -Infinity;
+        let minY = Infinity, maxY = -Infinity;
+        
+        for (let i = 0; i < positions.count; i++) {
+            minX = Math.min(minX, positions.getX(i));
+            maxX = Math.max(maxX, positions.getX(i));
+            minY = Math.min(minY, positions.getY(i));
+            maxY = Math.max(maxY, positions.getY(i));
+        }
+        
+        // Adjust UVs to fill entire space
+        for (let i = 0; i < uvAttribute.count; i++) {
+            const x = positions.getX(i);
+            const y = positions.getY(i);
+            
+            // Map position to UV coordinate
+            uvAttribute.setXY(
+                i,
+                (x - minX) / (maxX - minX),
+                (y - minY) / (maxY - minY)
+            );
+        }
+        
+        return geometry;
+    }
+
     Promise.all([
         loadTexture('front-cover.png'),
         loadTexture('spine.png'),
@@ -268,10 +308,9 @@ function init() {
         frontCover.position.z = depth/2 + coverThickness/2;
 
         // Front cover text overlay
-        const frontTextGeometry = createRoundedBoxGeometry(
+        const frontTextGeometry = createFullCoverGeometry(
           width + coverExtension,
           height + coverExtension,
-          0.001,  // Very thin depth
           cornerRadius
       );
 
@@ -290,7 +329,7 @@ function init() {
     bumpScale: 0.005 
     }));
     // Add these lines after creating frontText
-        coverTextTexture.repeat.set(0.3, 0.3);  // Adjust these values as needed for size
+        coverTextTexture.repeat.set(1, 1);  // Adjust these values as needed for size
         coverTextTexture.center.set(0.5, 0.5);
         coverTextTexture.offset.set(0, 0);
         coverTextTexture.needsUpdate = true;

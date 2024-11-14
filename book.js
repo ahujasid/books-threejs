@@ -33,7 +33,7 @@ function init() {
     // THREE.ColorManagement.legacyMode = false;
     const scene = new THREE.Scene();
 
-     scene.background = new THREE.Color(0x444444);  
+    //  scene.background = new THREE.Color(0x444444);  
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.z = 5;
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -411,8 +411,8 @@ const particleShaderMaterial = new THREE.ShaderMaterial({
 
         //Particles
         const particleGeometry = createFullCoverGeometry(
-            width + coverExtension,
-            height + coverExtension,
+            width + coverExtension - 0.2,
+            height + coverExtension - 0.2,
             cornerRadius
         );
 
@@ -452,8 +452,8 @@ const particleShaderMaterial = new THREE.ShaderMaterial({
             metalness: 1,
             roughness: 0.2,
             color: pngColor,
-            bumpMap: coverTextTexture,  // Adding just this line
-    bumpScale: 0.005 
+            emissive: pngColor, // Same color for glow
+            emissiveIntensity: 0.2,  // Intensity of the glow
         }));
 
         // Add these lines after creating backText
@@ -487,8 +487,9 @@ const particleShaderMaterial = new THREE.ShaderMaterial({
             side: THREE.DoubleSide,
             metalness: 1,
             roughness: 0.2,
-            bumpMap: coverTextTexture,  // Adding just this line
-    bumpScale: 0.005 
+            color: pngColor,
+            emissive: pngColor, // Same color for glow
+            emissiveIntensity: 0.2,  // Intensity of the glow
         }));
 
         // Add these lines after creating spineText

@@ -33,9 +33,16 @@ function init() {
     // THREE.ColorManagement.legacyMode = false;
     const scene = new THREE.Scene();
 
-    //  scene.background = new THREE.Color(0x444444);  
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.z = 5;
+    const camera = new THREE.PerspectiveCamera(
+        30, // Reduced FOV (from 75 to 45) for less perspective distortion
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+    );
+    camera.position.set(0, 0, 12); // Offset slightly to the right and down
+    camera.lookAt(0, 0, 0); // Look at the center of the scene
+
+
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setClearColor( 0x000000, 0 );
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -51,7 +58,7 @@ function init() {
     scene.add(ambientLight);
 
     // Main light - warm, strong keylight
-    const mainLight = new THREE.PointLight(0xffd5b8, 0.2);  // Slightly warm color
+    const mainLight = new THREE.PointLight(0xffd5b8, 0.3);  // Slightly warm color
     mainLight.position.set(3, 2, 4);
     camera.add(mainLight);
 
@@ -129,7 +136,7 @@ function init() {
         ctx.fillRect(0, 0, size, size);
         
         for (let i = 0; i < size; i += 2) {
-            ctx.fillStyle = `rgba(0,0,0,${Math.random() * 1})`;
+            ctx.fillStyle = `rgba(0,0,0,${Math.random() * 0.8})`;
             ctx.fillRect(i, 0, 1, size);
             
             ctx.fillStyle = `rgba(255,240,202,${Math.random() * 0.03})`;
@@ -149,7 +156,25 @@ function init() {
 
     function loadTexture(url) {
         return new Promise((resolve, reject) => {
-            textureLoader.load(url, resolve, undefined, reject);
+            textureLoader.load(url, 
+                (texture) => {
+                    // Improve texture quality
+                    texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                    texture.minFilter = THREE.LinearFilter;
+                    texture.magFilter = THREE.LinearFilter;
+                    texture.generateMipmaps = true;
+                    
+                    // Ensure proper UV mapping
+                    texture.repeat.set(1, 1);
+                    texture.center.set(0.5, 0.5);
+                    texture.offset.set(0, 0);
+                    texture.needsUpdate = true;
+                    
+                    resolve(texture);
+                }, 
+                undefined, 
+                reject
+            );
         });
     }
 
@@ -234,6 +259,8 @@ function init() {
         return geometry;
     }
 
+    
+
 
 // Update the particle shader material with these modifications
 const particleShaderMaterial = new THREE.ShaderMaterial({
@@ -309,32 +336,32 @@ const particleShaderMaterial = new THREE.ShaderMaterial({
         const pagesGeometry = createRoundedBoxGeometry(width - 0.1, height - 0.1, depth, cornerRadius);
         const pagesMaterial = [
             new THREE.MeshStandardMaterial({
-                map: createPageTexture(64, 64),
+                map: createPageTexture(32, 32),
                 roughness: 1,
                 metalness: 0
             }),
             new THREE.MeshStandardMaterial({
-                map: createPageTexture(64, 64),
+                map: createPageTexture(32, 32),
                 roughness: 1,
                 metalness: 0
             }),
             new THREE.MeshStandardMaterial({
-                map: createPageTexture(64, 64),
+                map: createPageTexture(32, 32),
                 roughness: 0.6,
                 metalness: 0
             }),
             new THREE.MeshStandardMaterial({
-                map: createPageTexture(64, 64),
+                map: createPageTexture(32, 32),
                 roughness: 0.6,
                 metalness: 0
             }),
             new THREE.MeshStandardMaterial({
-                map: createPageTexture(64, 64),
+                map: createPageTexture(32, 32),
                 roughness: 0.6,
                 metalness: 0
             }),
             new THREE.MeshStandardMaterial({
-                map: createPageTexture(64, 64),
+                map: createPageTexture(32, 32),
                 roughness: 1,
                 metalness: 0
             })
@@ -395,6 +422,8 @@ const particleShaderMaterial = new THREE.ShaderMaterial({
         color: pngColor,
         emissive: pngColor, // Same color for glow
         emissiveIntensity: 0.2,  // Intensity of the glow
+        flatShading: false,
+        precision: 'highp'
     }));
     // Add these lines after creating frontText
         coverTextTexture.repeat.set(1, 1);  // Adjust these values as needed for size
@@ -408,7 +437,6 @@ const particleShaderMaterial = new THREE.ShaderMaterial({
         frontText.renderOrder = 2;
 
 
-
         //Particles
         const particleGeometry = createFullCoverGeometry(
             width + coverExtension - 0.2,
@@ -416,15 +444,12 @@ const particleShaderMaterial = new THREE.ShaderMaterial({
             cornerRadius
         );
 
-
         const particleOverlay = new THREE.Mesh(particleGeometry, particleShaderMaterial);
         particleOverlay.position.z = depth/2 + coverThickness/2 + 0.09;
         particleOverlay.position.y = 0;
         particleOverlay.position.x = 0;
         particleOverlay.renderOrder = 1;
         
-
-      
 
         // Back cover base
         const backCoverGeometry = createRoundedBoxGeometry(
@@ -437,12 +462,12 @@ const particleShaderMaterial = new THREE.ShaderMaterial({
         backCover.position.z = -depth/2 - coverThickness/2;
 
         // Back cover text overlay
-        const backTextGeometry = createRoundedBoxGeometry(
+        const backTextGeometry = createFullCoverGeometry(
             width + coverExtension,
             height + coverExtension,
-            0.001,
             cornerRadius
         );
+
         const backText = new THREE.Mesh(backTextGeometry, new THREE.MeshStandardMaterial({
             map: backTextTexture,
             transparent: true,
@@ -454,15 +479,18 @@ const particleShaderMaterial = new THREE.ShaderMaterial({
             color: pngColor,
             emissive: pngColor, // Same color for glow
             emissiveIntensity: 0.2,  // Intensity of the glow
+            flatShading: false,
+            precision: 'highp'
         }));
 
         // Add these lines after creating backText
-        backTextTexture.repeat.set(0.3, 0.3);  // Adjust these values as needed
+        backTextTexture.repeat.set(1, 1);  // Adjust these values as needed
         backTextTexture.center.set(0.5, 0.5);
         backTextTexture.offset.set(0, 0);
         backTextTexture.needsUpdate = true;
 
         backText.position.z = -depth/2 - coverThickness/2 - 0.002;
+        
 
         const spineGeometry = new THREE.BoxGeometry(
             coverThickness,
@@ -484,19 +512,24 @@ const particleShaderMaterial = new THREE.ShaderMaterial({
             transparent: true,
             alphaTest: 0.1,
             depthWrite: false,
-            side: THREE.DoubleSide,
+            side: THREE.FrontSide,
             metalness: 1,
             roughness: 0.2,
             color: pngColor,
             emissive: pngColor, // Same color for glow
             emissiveIntensity: 0.2,  // Intensity of the glow
+            flatShading: false,
+            precision: 'highp'
         }));
 
         // Add these lines after creating spineText
             spineTexture.repeat.set(1, 1);  // Adjust these values as needed
             spineTexture.center.set(0.5, 0.5);
             spineTexture.offset.set(0, 0);
+            spineTexture.wrapS = THREE.ClampToEdgeWrapping; // Prevent horizontal wrapping
+            spineTexture.wrapT = THREE.ClampToEdgeWrapping; // Prevent vertical wrapping
             spineTexture.needsUpdate = true;
+       
 
         spineText.position.x = -width/2 - 0.075;
         spineText.position.z = 0.035;
@@ -515,14 +548,18 @@ const particleShaderMaterial = new THREE.ShaderMaterial({
 
         console.log('Particle overlay position:', particleOverlay.position);
 
-        book.rotation.y = -0.5;
+
+        book.rotation.x = Math.PI * -0.15; 
+        book.rotation.y = Math.PI * 0.1;
+        book.rotation.z = Math.PI * 0.05;
+
         scene.add(book);
     });
 
     function animate() {
         requestAnimationFrame(animate);
         controls.update();
-        particleShaderMaterial.uniforms.time.value += 0.01;
+        particleShaderMaterial.uniforms.time.value += 0.02;
         renderer.render(scene, camera);
     }
     animate();
